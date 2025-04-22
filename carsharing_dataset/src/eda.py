@@ -59,7 +59,7 @@ def check_basic_info(df):
 
 
 if __name__ == "__main__":
-    file_path = "/data/projects/4_kaggle/carsharing/data/car_train.csv"
+    file_path = "./data/car_train.csv"
     df = load_data(file_path)
     check_basic_info(df)
 
