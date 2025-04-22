@@ -12,6 +12,9 @@ sns.set_theme(style="darkgrid")
 
 RANDOM_STATE = 42
 
+BEST_FOLD_RMSE = float
+MEAN_RMSE = float
+STD_RMSE = float
 ModelType = Union[CatBoostRegressor, Booster, XGBRegressor]
 
 

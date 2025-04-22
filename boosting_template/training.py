@@ -1,8 +1,6 @@
 import numpy as np
 import pandas as pd
 
-from scipy import stats
-
 from sklearn.model_selection import KFold, RandomizedSearchCV
 from sklearn.metrics import mean_squared_error
 from sklearn.preprocessing import LabelEncoder
@@ -25,8 +23,7 @@ warnings.filterwarnings('ignore')
 
 def train_model(
         algorithm, X, y, early_stopping_rounds, init_params=None, cat_features=None, random_seed=2025, verbose=False,
-        # threads_num=1,
-) -> tuple[float, ModelType]:
+) -> tuple[float, float, float, ModelType]:
     scores = []
     models = []
 
@@ -69,20 +66,17 @@ def train_model(
             )
 
         elif algorithm.__name__ == 'XGBRegressor':
-            # X_train[cat_features] = X_train[cat_features].astype('category')
-            # X_eval[cat_features] = X_eval[cat_features].astype('category')
-
             train_dataset = xgb.DMatrix(
-                X_train, label=y_train, enable_categorical=True # TODO nthread=threads_num,
+                X_train, label=y_train, enable_categorical=True  # TODO nthread=threads_num,
             )
-            eval_dataset = xgb.DMatrix(X_eval, label=y_eval)
+            eval_dataset = xgb.DMatrix(X_eval, label=y_eval, enable_categorical=True)
 
             model = xgb.train(
                 params=init_params,
                 dtrain=train_dataset,
                 evals=[(train_dataset, 'dtrain'), (eval_dataset, 'dtest')],
                 early_stopping_rounds=early_stopping_rounds,
-                verbose_eval= 10 if verbose else False
+                verbose_eval=10 if verbose else False
             )
 
             X_eval = eval_dataset
@@ -103,99 +97,5 @@ def train_model(
     print(f"Mean RMSE score: {mean_kfold_score:.2f} +-{std_score:.2f} \n")
     best_model = models[np.argmin(scores)]
 
-    return mean_kfold_score, best_model
+    return scores[np.argmin(scores)], mean_kfold_score, std_score, best_model
 
-
-def train_catboost(train, test) -> dict:
-    X, y, X_test, _, _, cat_features = prepare_data(train, test)
-
-    cb_init_params = {
-        'loss_function': 'RMSE',
-        'eval_metric': 'RMSE',
-        'thread_count': -1,
-        'task_type': 'CPU',
-        'random_seed': RANDOM_STATE
-    }
-
-    cb_score, cb_model = train_model(
-        algorithm=CatBoostRegressor,
-        X=X, y=y,
-        init_params=cb_init_params,
-        early_stopping_rounds=5,
-        cat_features=cat_features,
-        random_seed=RANDOM_STATE
-    )
-
-    cb_test_pred = cb_model.predict(X_test)
-    pd.DataFrame({'car_id': test['car_id'], 'target_reg': cb_test_pred}).to_csv('cb_pred.csv', index=False)
-
-    return {
-        'model_name': 'CatBoostRegressor',
-        'tuning': False,
-        'kfold_score': cb_score,
-        # 'leaderboard_score': ...,
-        'model': cb_model
-    }
-
-
-def train_lightgbm(train, test) -> dict:
-    X, y, X_test, cat_features = prepare_data(train, test)
-
-    lgb_init_params = {
-        'objective': 'regression',
-        'metric': 'rmse',
-        'boosting_type': 'gbdt',
-        'verbosity': -1,
-        'seed': RANDOM_STATE
-    }
-
-    lgb_score, lgb_model = train_model(
-        algorithm=LGBMRegressor,
-        X=X, y=y,
-        init_params=lgb_init_params,
-        early_stopping_rounds=5,
-        cat_features=cat_features,
-        random_seed=RANDOM_STATE
-    )
-
-    lgb_test_pred = lgb_model.predict(X_test)
-    pd.DataFrame({'car_id': test['car_id'], 'target_reg': lgb_test_pred}).to_csv('lgb_pred.csv', index=False)
-
-    return {
-        'model_name': 'LGBMRegressor',
-        'tuning': False,
-        'kfold_score': lgb_score,
-        # 'leaderboard_score': ...,
-        'model': lgb_model
-    }
-
-
-def train_xgboost(train, test) -> dict:
-    X, y, X_test, cat_features = prepare_data(train, test)
-
-    xgb_init_params = {
-        'objective': 'reg:squarederror',
-        'eval_metric': 'rmse',
-        'verbosity': 0,
-        'seed': RANDOM_STATE
-    }
-
-    xgb_score, xgb_model = train_model(
-        algorithm=XGBRegressor,
-        X=X, y=y,
-        init_params=xgb_init_params,
-        early_stopping_rounds=5,
-        cat_features=cat_features,
-        random_seed=RANDOM_STATE
-    )
-
-    xgb_test_pred = xgb_model.predict(X_test)
-    pd.DataFrame({'car_id': test['car_id'], 'target_reg': xgb_test_pred}).to_csv('xgb_pred.csv', index=False)
-
-    return {
-        'model_name': 'XGBRegressor',
-        'tuning': False,
-        'kfold_score': xgb_score,
-        # 'leaderboard_score': ...,
-        'model': xgb_model
-    }

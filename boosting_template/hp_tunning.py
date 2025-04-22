@@ -1,8 +1,6 @@
 import numpy as np
 import pandas as pd
 
-from scipy import stats
-
 from sklearn.model_selection import KFold, RandomizedSearchCV
 from sklearn.metrics import mean_squared_error
 from sklearn.preprocessing import LabelEncoder
@@ -15,7 +13,7 @@ from lightgbm import Dataset, LGBMRegressor
 import xgboost as xgb
 from xgboost import XGBRegressor
 
-from consts import RANDOM_STATE, ModelType
+from consts import RANDOM_STATE, ModelType, BEST_FOLD_RMSE, MEAN_RMSE, STD_RMSE
 
 import warnings
 
@@ -45,7 +43,7 @@ def tuning_hyperparams(
 
 def train_catboost_hp(
         X, y, init_params, params, cat_features, n_iter=10, cv=3, verbose=False, random_seed=RANDOM_STATE, plot=False
-) -> tuple[float, ModelType]:
+) -> tuple[BEST_FOLD_RMSE, MEAN_RMSE, STD_RMSE, ModelType]:
     assert 'early_stopping_rounds' in init_params
 
     kf = KFold(n_splits=3, shuffle=True, random_state=random_seed)
@@ -99,17 +97,17 @@ def train_catboost_hp(
     print("BEST MODEL:", best_params[best_model_index])
     print(f'BEST RMSE: {rmse_scores[best_model_index]:.2f} \n')
 
-    return rmse_scores[best_model_index], best_model
+    return rmse_scores[best_model_index], mean_kfold_score, std_score, best_model
 
 
 def train_lightgbm_hp(
         X, y, init_params, grid_params, fit_params, cat_features,
         n_iter=10,
         cv=3,
-        verbose=0,
+        verbose=False,
         random_seed=RANDOM_STATE,
         n_jobs=1
-) -> tuple[float, ModelType]:
+) -> tuple[BEST_FOLD_RMSE, MEAN_RMSE, STD_RMSE, ModelType]:
     """
     Example:
         >>> lgb_init_params = {
@@ -142,6 +140,7 @@ def train_lightgbm_hp(
         >>> pd.DataFrame({'car_id': test['car_id'], 'target_reg': lgb_test_pred}).to_csv('subs/lgb_pred_hp.csv', index=False)
 
     """
+
     kf = KFold(n_splits=3, shuffle=True, random_state=random_seed)
 
     models = []
@@ -198,7 +197,7 @@ def train_lightgbm_hp(
         rmse_train = np.sqrt(mean_squared_error(y_train, y_pred_train))
 
         print(f"BEST PARAMS for split {i}:", best_params[i])
-        print(f"SCORE val/train: {rmse:.2f}/{rmse_train:.2f} \n")
+        print(f"SCORE val/train: {rmse:.2f}/{rmse_train:.2f}, ")
 
     best_model_index = np.argmin(rmse_scores)
     best_model = models[best_model_index]
@@ -209,7 +208,7 @@ def train_lightgbm_hp(
     print("BEST MODEL:", best_params[best_model_index])
     print(f'BEST RMSE: {rmse_scores[best_model_index]:.2f}')
 
-    return rmse_scores[best_model_index], best_model
+    return rmse_scores[best_model_index], mean_kfold_score, std_score, best_model
 
 
 def train_xgboost_hp(
@@ -219,7 +218,7 @@ def train_xgboost_hp(
         verbose=False,
         random_seed=RANDOM_STATE,
         n_jobs=1
-) -> tuple[float, ModelType]:
+) -> tuple[BEST_FOLD_RMSE, MEAN_RMSE, STD_RMSE, ModelType]:
     """
     Example:
         >>> xgb_init_params = {
@@ -318,5 +317,5 @@ def train_xgboost_hp(
     print("BEST MODEL:\n", best_params[best_model_index])
     print(f'BEST RMSE: {rmse_scores[best_model_index]:.2f}')
 
-    return rmse_scores[best_model_index], best_model
+    return rmse_scores[best_model_index], mean_kfold_score, std_score, best_model
 
